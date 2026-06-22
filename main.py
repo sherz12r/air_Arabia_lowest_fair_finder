@@ -58,6 +58,7 @@ class Automation:
 
     def __init__(self):
         self.config = self.read_json('config.json')
+
         if self.config:
             self._log("Settings loaded from config.json.")
         else:
@@ -69,7 +70,6 @@ class Automation:
         self.driver = self.get_driver(headless=self.headless)
         self._log("Browser ready.")
         self.start_automation()
-        self.fare_counts = Counter()
 
     def element_exists(self, selector: str, timeout: int = 30) -> bool:
         by = By.XPATH if selector.startswith("/") or selector.startswith("(") else By.CSS_SELECTOR
@@ -421,8 +421,9 @@ class Automation:
 
     def look_for_fare(self, max_days=5):
         self._log(f"Finding suitable fare for {max_days} days...")
-
         wait = WebDriverWait(self.driver, 20)
+        self.fare_counts = Counter()
+
 
         for day in range(max_days):
             self._log(f"Checking day {day + 1}/{max_days}")
@@ -463,7 +464,7 @@ class Automation:
                 first_row_in.click()
                 self.random_sleep()
                 self._log("Inbound clicked")
-                in_price = in_table.find_elements(By.CLASS_NAME, "priceBg")[0].find_element(By.TAG_NAME, "b").text
+                in_price = int(in_table.find_elements(By.CLASS_NAME, "priceBg")[0].find_element(By.TAG_NAME, "b").text)
                 self._log(f"{day + 1} Price is {in_price}")
 
 
@@ -497,7 +498,6 @@ class Automation:
                 f"(found {self.fare_counts[cheapest]} times)"
             )
 
-        self._log(f"Cheapest fare is: {cheapest}")
         return cheapest
     
 
