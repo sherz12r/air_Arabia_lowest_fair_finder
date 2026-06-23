@@ -1,7 +1,7 @@
 """
 VFS Global Automation — configuration dashboard.
 
-Collects all config.json and billing.json fields, writes them on start,
+Collects all config.json fields, writes them on start,
 then runs main.Automation without modifying the bot.
 """
 
@@ -26,7 +26,6 @@ from session_logger import (
 )
 
 CONFIG_PATH = "config.json"
-BILLING_PATH = "billing.json"
 
 SCRIPT_DIR = get_app_dir()
 
@@ -144,7 +143,7 @@ class DashboardApp(tk.Tk):
 
         ttk.Label(
             header,
-            text="VFS Global Automation",
+            text="Air Arabia Automation",
             font=("Segoe UI", 16, "bold"),
         ).pack(anchor=tk.W)
         ttk.Label(
@@ -152,30 +151,6 @@ class DashboardApp(tk.Tk):
             text="Configure settings below, then start the bot. Files are saved before each run.",
             foreground="#555",
         ).pack(anchor=tk.W, pady=(2, 0))
-
-        mode_frame = ttk.LabelFrame(self, text="Automation mode", padding=8)
-        mode_frame.pack(fill=tk.X, padx=12, pady=(8, 0))
-
-        self.mode_var = tk.StringVar(value="full")
-        ttk.Radiobutton(
-            mode_frame,
-            text="Full automation — runs through payment (steps 1–14)",
-            variable=self.mode_var,
-            value="full",
-        ).pack(anchor=tk.W)
-        ttk.Radiobutton(
-            mode_frame,
-            text="Half automation — stops after slot booking (step 10); complete payment manually",
-            variable=self.mode_var,
-            value="half",
-        ).pack(anchor=tk.W, pady=(4, 0))
-        
-        self.run_infinite = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            mode_frame,
-            text="Run bot unlimited times until slot is found",
-            variable=self.run_infinite,
-        ).pack(anchor=tk.W)
 
         options_frame = ttk.LabelFrame(self, text="Browser options", padding=8)
         options_frame.pack(fill=tk.X, padx=12, pady=(6, 0))
@@ -209,9 +184,7 @@ class DashboardApp(tk.Tk):
 
         self.vars = {}
         self._add_tab(notebook, "Login & countries", self._login_fields())
-        self._add_tab(notebook, "Applicant form", self._applicant_fields())
         self._add_tab(notebook, "Slot date range", self._slot_fields())
-        self._add_tab(notebook, "Billing & payment", self._billing_fields())
 
         ttk.Button(btn_frame, text="Reload from files", command=self._load_from_files).pack(
             side=tk.LEFT
@@ -233,51 +206,14 @@ class DashboardApp(tk.Tk):
             ("to_airport", "Visiting country (second dropdown)", "Turkiye"),
             ("vfs_email", "VFS login email", ""),
             ("vfs_password", "VFS login password", "", True),
-            ("vfs_email1", "VFS login email1", ""),
-            ("vfs_password1", "VFS login password1", "", True),
-            ("vfs_email2", "VFS login email2", ""),
-            ("vfs_password2", "VFS login password2", "", True),
-            ("vfs_email3", "VFS login email3", ""),
-            ("vfs_password3", "VFS login password3", "", True),
         ]
 
-    def _applicant_fields(self):
-        return [
-            ("app_first_name", "First name", ""),
-            ("app_last_name", "Last name", ""),
-            ("app_gender", "Gender (e.g. Male / Female)", "Male"),
-            ("app_date_of_birth", "Date of birth (DDMMYYYY)", ""),
-            ("app_nationality", "Nationality", ""),
-            ("app_passport_number", "Passport number", ""),
-            ("app_passport_expiry", "Passport expiry (DDMMYYYY)", ""),
-            ("app_country_code", "Phone country code", "92"),
-            ("app_phone", "Phone number", ""),
-            ("app_email", "Applicant email", ""),
-        ]
 
     def _slot_fields(self):
         return [
             ("slot_date_from", "Earliest slot date (DD/MM/YYYY)", "23/07/2026"),
             ("slot_date_to", "Latest slot date (DD/MM/YYYY)", "23/07/2026"),
             ("check_for_days", "Check for days", "30"),
-        ]
-
-    def _billing_fields(self):
-        return [
-            ("bill_first_name", "Billing first name", ""),
-            ("bill_last_name", "Billing last name", ""),
-            ("bill_address1", "Address line 1", ""),
-            ("bill_address2", "Address line 2", ""),
-            ("bill_city", "City", ""),
-            ("bill_country", "Country code (e.g. AE)", "AE"),
-            ("bill_postal", "Postal code", ""),
-            ("bill_phone", "Billing phone", ""),
-            ("bill_email", "Billing email", ""),
-            ("card_type", "Card type — 001 Visa, 002 Mastercard", "001"),
-            ("card_number", "Card number", ""),
-            ("expiry_month", "Expiry month (MM)", "12"),
-            ("expiry_year", "Expiry year (YYYY)", "2027"),
-            ("cvn", "CVN / CVV", "", True),
         ]
 
     def _add_tab(self, notebook, title, fields):
@@ -348,12 +284,7 @@ class DashboardApp(tk.Tk):
 
     def _load_from_files(self, silent=False):
         config = self._read_json(CONFIG_PATH)
-        billing = self._read_json(BILLING_PATH)
         app = config.get("application_from_data", {})
-
-        self.mode_var.set("full" if config.get("full_automation", False) else "half")
-
-        self.run_infinite.set(bool(config.get("run_infinite", False)))
 
         self.headless_var.set(bool(config.get("headless", False)))
 
@@ -363,46 +294,16 @@ class DashboardApp(tk.Tk):
             "to_airport": config.get("to_airport", ""),
             "vfs_email": config.get("email", ""),
             "vfs_password": config.get("password", ""),
-            "vfs_email1": config.get("email1", ""),
-            "vfs_password1": config.get("password1", ""),
-            "vfs_email2": config.get("email2", ""),
-            "vfs_password2": config.get("password2", ""),
-            "vfs_email3": config.get("email3", ""),
-            "vfs_password3": config.get("password3", ""),
             "slot_date_from": slot_range.get("from", ""),
             "slot_date_to": slot_range.get("to", ""),
             "check_for_days": slot_range.get("check_for_days", ""),
-            "app_first_name": app.get("first_name", ""),
-            "app_last_name": app.get("last_name", ""),
-            "app_gender": app.get("gender", "Male"),
-            "app_date_of_birth": app.get("date_of_birth", ""),
-            "app_nationality": app.get("nationality", ""),
-            "app_passport_number": app.get("passport_number", ""),
-            "app_passport_expiry": app.get("passport_expiry_data", ""),
-            "app_country_code": app.get("country_code", ""),
-            "app_phone": app.get("phone", ""),
-            "app_email": app.get("email", ""),
-            "bill_first_name": billing.get("first_name", ""),
-            "bill_last_name": billing.get("last_name", ""),
-            "bill_address1": billing.get("address_line1", ""),
-            "bill_address2": billing.get("address_line2", ""),
-            "bill_city": billing.get("city", ""),
-            "bill_country": billing.get("country", "AE"),
-            "bill_postal": billing.get("postal_code", ""),
-            "bill_phone": billing.get("phone", ""),
-            "bill_email": billing.get("email", ""),
-            "card_type": billing.get("card_type", "001"),
-            "card_number": billing.get("card_number", ""),
-            "expiry_month": billing.get("expiry_month", ""),
-            "expiry_year": billing.get("expiry_year", ""),
-            "cvn": billing.get("cvn", ""),
         }
         for key, value in mapping.items():
             if key in self.vars:
                 self.vars[key].set(str(value) if value is not None else "")
 
         if not silent:
-            self._log(f"Loaded {CONFIG_PATH} and {BILLING_PATH}.")
+            self._log(f"Loaded {CONFIG_PATH}.")
 
     def _open_log_viewer(self):
         LogViewerWindow(self, SCRIPT_DIR)
@@ -410,58 +311,20 @@ class DashboardApp(tk.Tk):
     def _collect_config(self):
         config = self._read_json(CONFIG_PATH)
         return {
-            "full_automation": self.mode_var.get() == "full",
-            "run_infinite": self.run_infinite.get(),
             "headless": self.headless_var.get(),
             "from_airport": self.vars["from_airport"].get().strip(),
             "to_airport": self.vars["to_airport"].get().strip(),
             "email": self.vars["vfs_email"].get().strip(),
             "password": self.vars["vfs_password"].get(),
-            "email1": self.vars["vfs_email1"].get().strip(),
-            "password1": self.vars["vfs_password1"].get(),
-            "email2": self.vars["vfs_email2"].get().strip(),
-            "password2": self.vars["vfs_password2"].get(),
-            "email3": self.vars["vfs_email3"].get().strip(),
-            "password3": self.vars["vfs_password3"].get(),
-            "slot_check_interval_minutes": config.get("slot_check_interval_minutes", "60"),
             "slot_date_range": {
                 "from": self.vars["slot_date_from"].get().strip(),
                 "to": self.vars["slot_date_to"].get().strip(),
                 "check_for_days": self.vars["check_for_days"].get().strip(),
             },
-            "application_from_data": {
-                "first_name": self.vars["app_first_name"].get().strip(),
-                "last_name": self.vars["app_last_name"].get().strip(),
-                "gender": self.vars["app_gender"].get().strip(),
-                "date_of_birth": self.vars["app_date_of_birth"].get().strip(),
-                "nationality": self.vars["app_nationality"].get().strip(),
-                "passport_number": self.vars["app_passport_number"].get().strip(),
-                "passport_expiry_data": self.vars["app_passport_expiry"].get().strip(),
-                "country_code": self.vars["app_country_code"].get().strip(),
-                "phone": self.vars["app_phone"].get().strip(),
-                "email": self.vars["app_email"].get().strip(),
-            },
+           
         }
 
-    def _collect_billing(self):
-        return {
-            "first_name": self.vars["bill_first_name"].get().strip(),
-            "last_name": self.vars["bill_last_name"].get().strip(),
-            "address_line1": self.vars["bill_address1"].get().strip(),
-            "address_line2": self.vars["bill_address2"].get().strip(),
-            "city": self.vars["bill_city"].get().strip(),
-            "country": self.vars["bill_country"].get().strip(),
-            "postal_code": self.vars["bill_postal"].get().strip(),
-            "phone": self.vars["bill_phone"].get().strip(),
-            "email": self.vars["bill_email"].get().strip(),
-            "card_type": self.vars["card_type"].get().strip(),
-            "card_number": self.vars["card_number"].get().strip(),
-            "expiry_month": self.vars["expiry_month"].get().strip(),
-            "expiry_year": self.vars["expiry_year"].get().strip(),
-            "cvn": self.vars["cvn"].get().strip(),
-        }
-
-    def _validate(self, config, billing):
+    def _validate(self, config):
         required_config = [
             ("from_airport", config["from_airport"]),
             ("to_airport", config["to_airport"]),
@@ -471,11 +334,6 @@ class DashboardApp(tk.Tk):
         for label, value in required_config:
             if not value:
                 return f"Missing: {label}"
-
-        app = config["application_from_data"]
-        for key in app:
-            if not app[key]:
-                return f"Missing applicant field: {key.replace('_', ' ')}"
 
         slot_range = config.get("slot_date_range", {})
         date_from = slot_range.get("from", "")
@@ -492,53 +350,19 @@ class DashboardApp(tk.Tk):
         if d_from > d_to:
             return "Slot date 'from' must be on or before 'to'"
 
-        if config["full_automation"]:
-            billing_required = [
-                "first_name",
-                "last_name",
-                "address_line1",
-                "city",
-                "country",
-                "phone",
-                "email",
-                "card_type",
-                "card_number",
-                "expiry_month",
-                "expiry_year",
-                "cvn",
-            ]
-            for key in billing_required:
-                if not billing.get(key):
-                    return f"Missing billing field: {key.replace('_', ' ')} (required for full automation)"
-
         return None
 
-    def _write_json_files(self, config, billing):
+    def _write_json_files(self, config):
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-        with open(BILLING_PATH, "w", encoding="utf-8") as f:
-            json.dump(billing, f, indent=4, ensure_ascii=False)
             f.write("\n")
 
     def _save_only(self):
         config = self._collect_config()
-        billing = self._collect_billing()
-        err = self._validate(config, billing)
-        if err and config["full_automation"]:
-            messagebox.showwarning("Validation", err)
-            return
-        if err and not config["full_automation"]:
-            if messagebox.askyesno(
-                "Validation",
-                f"{err}\n\nSave anyway? (Half automation may not need billing.)",
-            ):
-                pass
-            else:
-                return
+        err = self._validate(config)
         try:
-            self._write_json_files(config, billing)
-            self._log(f"Saved {CONFIG_PATH} and {BILLING_PATH}.")
+            self._write_json_files(config)
+            self._log(f"Saved {CONFIG_PATH}.")
             messagebox.showinfo("Saved", "Configuration files written successfully.")
         except OSError as exc:
             messagebox.showerror("Error", f"Could not save files:\n{exc}")
@@ -553,21 +377,19 @@ class DashboardApp(tk.Tk):
             return
 
         config = self._collect_config()
-        billing = self._collect_billing()
-        err = self._validate(config, billing)
+        err = self._validate(config)
         if err:
             messagebox.showwarning("Validation", err)
             return
 
         try:
-            self._write_json_files(config, billing)
+            self._write_json_files(config)
         except OSError as exc:
             messagebox.showerror("Error", f"Could not save files:\n{exc}")
             return
 
-        mode_label = "FULL" if config["full_automation"] else "HALF"
         browser_label = "headless" if config.get("headless") else "visible"
-        self._log(f"Starting {mode_label} automation ({browser_label} browser) …")
+        self._log(f"Starting automation ({browser_label} browser) …")
         self._set_running(True)
 
         thread = threading.Thread(target=self._run_bot, daemon=True)

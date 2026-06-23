@@ -424,7 +424,6 @@ class Automation:
         wait = WebDriverWait(self.driver, 20)
         self.fare_counts = Counter()
 
-
         for day in range(max_days):
             self._log(f"Checking day {day + 1}/{max_days}")
             self.random_sleep()
