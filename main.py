@@ -23,18 +23,6 @@ try:
 except ImportError:
     _HAS_CLOAK = False
 
-class NoSlotsAvailableError(Exception):
-    pass
-
-
-class RecoverableAutomationError(Exception):
-    """Transient failure — bot will wait and retry slot check."""
-    pass
-
-
-class AccountLockedError(Exception):
-    """VFS rate-limit / account lock — bot waits longer before retry."""
-    pass
 
 running_counter = 0
 
@@ -107,12 +95,6 @@ class Automation:
                 options.add_argument(arg)
             kwargs["version_main"] = int(get_chromium_version().split(".")[0])
 
-        # driver = uc.Chrome(options=options, **kwargs)
-        # driver.execute_cdp_cmd(
-        #     "Page.setDownloadBehavior",
-        #     {"behavior": "allow"}
-        #     )
-        
         return uc.Chrome(options=options, **kwargs)
 
 
@@ -135,8 +117,6 @@ class Automation:
 
     def start_automation(self):
         self._log("Automation run started.")
-        mode = "full" if self.config.get('full_automation', False) else "half"
-        self._log(f"Mode: {mode} automation.")
 
         self.do_login()
         iframes = self.driver.find_elements(By.CSS_SELECTOR, "iframe[src='showTop']")
@@ -149,11 +129,6 @@ class Automation:
         self.look_for_fare()
         input("last step performed")
         self._close_browser_safely()
-
-        # else:
-        #     self._log("Half automation complete — appointment slot step finished.")
-        #     self._log("Please complete payment and any remaining steps in the browser.")
-        #     input("Automation paused after Step 10. Complete remaining steps manually, then press Enter to exit...")
 
 
     def do_login(self):
@@ -323,7 +298,6 @@ class Automation:
             self._log("search button clicked ...")
         except Exception as e:
             self._log(f"could not perform search Error: {e}")
-            input("eror")
 
     def select_airport(self, field_id, airport_text):
         wait = WebDriverWait(self.driver, 20)
@@ -420,6 +394,7 @@ class Automation:
 
 
     def look_for_fare(self, max_days=5):
+        max_days = self.config.get("check_for_days", "")
         self._log(f"Finding suitable fare for {max_days} days...")
         wait = WebDriverWait(self.driver, 20)
         self.fare_counts = Counter()
