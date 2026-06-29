@@ -1,6 +1,6 @@
 from email.mime import text
 import os, json, sys
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from time import sleep
 from random import uniform
 import undetected_chromedriver as uc
@@ -11,6 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import tkinter as tk
 from tkinter import messagebox
 from collections import Counter
+import requests
 import sys
 import re
 
@@ -22,9 +23,6 @@ try:
     _HAS_CLOAK = True
 except ImportError:
     _HAS_CLOAK = False
-
-
-running_counter = 0
 
 
 class Automation:
@@ -98,10 +96,8 @@ class Automation:
         return uc.Chrome(options=options, **kwargs)
 
 
-
     def random_sleep(self):
         sleep(uniform(1.2, 4.8))
-
 
 
     def _close_browser_safely(self) -> None:
@@ -117,18 +113,24 @@ class Automation:
 
     def start_automation(self):
         self._log("Automation run started.")
-
+        # airports = self.get_airports()
+        # self._log(f"Airports: {airports}")
+        # input("starting")
         self.do_login()
         iframes = self.driver.find_elements(By.CSS_SELECTOR, "iframe[src='showTop']")
 
         if not iframes:
             self.look_for_otp()
-
+        
+        airports = self.get_airports()
+        self._log(f"Airports: {airports}")
         self.click_reservation()
-        self.perform_search()
-        self.look_for_fare()
-        input("last step performed")
-        self._close_browser_safely()
+
+        for airport in airports['airport']:
+            self.perform_search(airport)
+            self.look_for_fare(airport)
+            input("last step performed")
+            self._close_browser_safely()
 
 
     def do_login(self):
@@ -163,14 +165,12 @@ class Automation:
             self._log("Switched to popup window:")
             # 1. Switch to iframe
             
-            
             iframes = self.driver.find_elements(By.CSS_SELECTOR, "iframe[src='showTop']")
 
             if iframes:
                 self._log("already login detected")
                 return
                 
-
             
             self.type_input(By.ID,"username_txt", self.config.get('email', ''))
             self.type_input(By.ID,"j_password", self.config.get('password', ''))
@@ -256,9 +256,11 @@ class Automation:
         self._log("Reservation button clicked.")
         
 
-    def perform_search(self):
+    def perform_search(self, airport):
         try:
-            self._log("Performing search...")
+            self._log(f"Performing search for {airport}")
+            self._log(f"airport from {airport['from']}")
+
             self.random_sleep()
             wait = WebDriverWait(self.driver, 15)
 
@@ -272,7 +274,8 @@ class Automation:
 
             self.random_sleep()
 
-            self.select_airport("fAirport", self.config.get('from_airport', ''))
+            # self.select_airport("fAirport", self.config.get('from_airport', ''))
+            self.select_airport("fAirport", airport['from'])
             self.random_sleep()
             self._log("airport select from complete.")
         
@@ -280,17 +283,21 @@ class Automation:
         
             
             self.random_sleep()
-            self.select_airport("tAirport", self.config.get('to_airport', ''))
+            # self.select_airport("tAirport", self.config.get('to_airport', ''))
+            self.select_airport("tAirport", airport['to'])
             self.random_sleep()
 
             slot_range = self.config.get("slot_date_range", {})
             departure_date = slot_range.get("from", "").strip()
-            conver_departure_date = datetime.strptime(departure_date, "%d/%m/%Y").date()
+            converted_departure_date = datetime.strptime(departure_date, "%d/%m/%Y").date()
 
-            if conver_departure_date > date.today():
+            if converted_departure_date > date.today():
                 self.type_input(By.ID,"departureDate", slot_range.get("from", "").strip())
+                self.type_input(By.ID,"returnDate", slot_range.get("to", "").strip())
+            else:
+                futureDate = date.today() + timedelta(days=3)
+                self.type_input(By.ID,"returnDate", futureDate.strftime("%d/%m/%Y"))
 
-            self.type_input(By.ID,"returnDate", slot_range.get("to", "").strip())
             self.driver.find_element(By.ID, "btnSearch").click()
             self.random_sleep()
 
@@ -337,7 +344,7 @@ class Automation:
                 "div.x-combo-list-item"
             )
 
-            self._log(f"Found {len(options)} options")
+            # self._log(f"Found {len(options)} options")
 
             # Print all options for debugging
             # for i, opt in enumerate(options, 1):
@@ -393,8 +400,9 @@ class Automation:
             return False
 
 
-    def look_for_fare(self, max_days=5):
-        max_days = self.config.get("check_for_days", "")
+    def look_for_fare(self, airport):
+        max_days = int(airport['days_to_check'])
+        # max_days = self.config.get("check_for_days", "")
         self._log(f"Finding suitable fare for {max_days} days...")
         wait = WebDriverWait(self.driver, 20)
         self.fare_counts = Counter()
@@ -435,6 +443,14 @@ class Automation:
                 self.random_sleep()
                 in_table = self.driver.find_element(By.ID, "tblInboundFlights")
                 first_row_in = in_table.find_element(By.CSS_SELECTOR, "tr")
+                departure = first_row_in.find_element(By.XPATH, "./td[4]")
+                self._log(f"departure time: {departure}")
+                input("departure time found")
+
+                arrival = first_row_in.find_element(By.XPATH, "./td[5]")
+                self._log(f"departure time: {arrival}")
+                input("arival time found")
+
                 first_row_in.click()
                 self.random_sleep()
                 self._log("Inbound clicked")
@@ -458,13 +474,39 @@ class Automation:
             self.fare_counts[flight_price] += 1
 
             self._log(f"Day {day + 1} fare: {flight_price}")
+            self._log("posting fare price")
+            input("checck code for date")
+            prams = {
+                "from": airport['from'],
+                "to": airport['to'],
+                "departure": departure,
+                "arrival": arrival,
+                "fare": flight_price,
+            }
+            posting = [
+                "http://localhost/fasttrack_perfex/holiday/api/get_airports"
+            ]
+            headers = {
+                "X-API-KEY": "eyJ1c2VybmFtZSI6ImluZm8uZ3N0c3ZuMTEwOEBnbWFpbC5jb20iLCJw8uZ3N0c3ZuMTEwYXNzd29yZCI6IjEyMzQ1NmFAIiwiQVBJX1RJTUUiOjE1NzQzOTU4NTl9",
+                "Accept": "application/json"
+            }
+            for post in posting:
+                response = requests.get(
+                    post,
+                    params=prams,
+                    headers=headers
+                )
+
+            input(f"Response: {response.text}")
+            self.random_sleep()
+
             self._click_next_day(wait)
             # input(f"{day + 1} loop finished")
 
             
 
         for fare, count in sorted(self.fare_counts.items()):
-            self._log(f"AED {fare} found {count} times")
+            self._log(f"AED {fare} found {count} times in {max_days} days")
         if self.fare_counts:
             cheapest = min(self.fare_counts)
             self._log(
@@ -505,9 +547,6 @@ class Automation:
             self._log(f"Next day click failed: {e}")
        
 
-
-
-
     def scroll_to_element(self, element):
             self.driver.execute_script("""arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center'});""", element)
             self.random_sleep()
@@ -518,7 +557,9 @@ class Automation:
         self.scroll_to_element(element)
 
         element.clear()
-        element.send_keys(text)
+        for ch in text:
+            element.send_keys(ch)
+            sleep(0.15)
 
         self.random_sleep()
 
@@ -554,12 +595,35 @@ class Automation:
 
         except Exception:
             return {}
+    
+    def get_airports(self):
+        self._log(f"getting airports")
+        
+        headers = {
+            "X-API-KEY": "eyJ1c2VybmFtZSI6ImluZm8uZ3N0c3ZuMTEwOEBnbWFpbC5jb20iLCJw8uZ3N0c3ZuMTEwYXNzd29yZCI6IjEyMzQ1NmFAIiwiQVBJX1RJTUUiOjE1NzQzOTU4NTl9",
+            "Accept": "application/json"
+        }
+
+        try:
+            response = requests.get(
+                'http://localhost/fasttrack_perfex/holiday/api/get_airports',
+                headers=headers,
+                timeout=30
+
+            )
+            airports = response.json()
+            self._log(f"airports found: {airports}")
+            return airports
+        except Exception as e:
+            self._log(f"Error: {e}")
+
+
+        
 
 
 
 if __name__ == "__main__":
-    print("[Air Arabia Bot] Launching VFS Global Automation...")
+    print("[Air Arabia Bot] Launching Automation...")
     automation = Automation()
     print("[Air Arabia Bot] Session ended.")
 
-    # a = ''
