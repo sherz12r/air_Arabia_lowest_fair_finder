@@ -419,6 +419,13 @@ class Automation:
             try:
                 out_table = self.driver.find_element(By.ID, "tblOutboundFlights")
                 first_row = out_table.find_element(By.CSS_SELECTOR, "tr")
+                departure_out = first_row.find_element(By.XPATH, "./td[5]").text
+                self._log(f"departure time: {departure_out}")
+                # input("departure out time found")
+
+                # arrival_out = first_row.find_element(By.XPATH, "./td[6]").text
+                # self._log(f"arrival time: {arrival_out}")
+                # input("arival in time found")
                 first_row.click()
                 self.random_sleep()
                 out_price = int(self.driver.find_element(
@@ -443,13 +450,13 @@ class Automation:
                 self.random_sleep()
                 in_table = self.driver.find_element(By.ID, "tblInboundFlights")
                 first_row_in = in_table.find_element(By.CSS_SELECTOR, "tr")
-                departure = first_row_in.find_element(By.XPATH, "./td[4]")
-                self._log(f"departure time: {departure}")
-                input("departure time found")
+                departure_in = first_row_in.find_element(By.XPATH, "./td[5]").text
+                self._log(f"departure time: {departure_in}")
+                # input("departure time found")
 
-                arrival = first_row_in.find_element(By.XPATH, "./td[5]")
-                self._log(f"departure time: {arrival}")
-                input("arival time found")
+                # arrival = first_row_in.find_element(By.XPATH, "./td[6]").text
+                # self._log(f"arrival time: {arrival}")
+                # input("arival time found")
 
                 first_row_in.click()
                 self.random_sleep()
@@ -475,16 +482,19 @@ class Automation:
 
             self._log(f"Day {day + 1} fare: {flight_price}")
             self._log("posting fare price")
-            input("checck code for date")
+            depart = datetime.strptime(departure_out, "%a %d%b%y %H:%M")
+            arriv = datetime.strptime(departure_in, "%a %d%b%y %H:%M")
+
             prams = {
                 "from": airport['from'],
                 "to": airport['to'],
-                "departure": departure,
-                "arrival": arrival,
+                "departure": depart.strftime("%Y-%m-%d %H:%M:%S"),
+                "return": arriv.strftime("%Y-%m-%d %H:%M:%S"),
                 "fare": flight_price,
+                "airport_id": airport['id'],
             }
             posting = [
-                "http://localhost/fasttrack_perfex/holiday/api/get_airports"
+                "http://localhost/fasttrack_perfex/holiday/api/update_fare"
             ]
             headers = {
                 "X-API-KEY": "eyJ1c2VybmFtZSI6ImluZm8uZ3N0c3ZuMTEwOEBnbWFpbC5jb20iLCJw8uZ3N0c3ZuMTEwYXNzd29yZCI6IjEyMzQ1NmFAIiwiQVBJX1RJTUUiOjE1NzQzOTU4NTl9",
@@ -496,8 +506,10 @@ class Automation:
                     params=prams,
                     headers=headers
                 )
+                self._log(f"api response {response}")
+                self.random_sleep()
 
-            input(f"Response: {response.text}")
+            # input(f"first api posted Response: {response}")
             self.random_sleep()
 
             self._click_next_day(wait)
