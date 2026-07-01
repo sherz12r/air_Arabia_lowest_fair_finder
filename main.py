@@ -55,6 +55,8 @@ class Automation:
         self._log(f"Opening Chrome browser — {browser_mode}...")
         self.driver = self.get_driver(headless=self.headless)
         self._log("Browser ready.")
+        self.iframe_found = False
+
         self.start_automation()
 
     def element_exists(self, selector: str, timeout: int = 30) -> bool:
@@ -113,24 +115,25 @@ class Automation:
 
     def start_automation(self):
         self._log("Automation run started.")
-        # airports = self.get_airports()
-        # self._log(f"Airports: {airports}")
-        # input("starting")
+
         self.do_login()
         iframes = self.driver.find_elements(By.CSS_SELECTOR, "iframe[src='showTop']")
 
         if not iframes:
             self.look_for_otp()
         
+
         airports = self.get_airports()
         self._log(f"Airports: {airports}")
         self.click_reservation()
 
+
         for airport in airports['airport']:
             self.perform_search(airport)
             self.look_for_fare(airport)
-            input("last step performed")
-            self._close_browser_safely()
+        
+        input("last step performed")
+        self._close_browser_safely()
 
 
     def do_login(self):
@@ -249,7 +252,7 @@ class Automation:
             self.driver.execute_script("arguments[0].click();", make_res)
 
         # 3. Back to main page
-        self.driver.switch_to.default_content()
+        # self.driver.switch_to.default_content()
 
         self.random_sleep()
 
@@ -257,18 +260,21 @@ class Automation:
         
 
     def perform_search(self, airport):
+        global iframe_found
         try:
             self._log(f"Performing search for {airport}")
             self._log(f"airport from {airport['from']}")
+            self.driver.switch_to.default_content()
 
             self.random_sleep()
             wait = WebDriverWait(self.driver, 15)
-
+            # if not self.iframe_found:
             wait.until(
                 EC.frame_to_be_available_and_switch_to_it(
                     (By.CSS_SELECTOR, "iframe[src='showMain']")
                 )
             )
+            # iframe_found = True
 
             self.driver.find_element(By.ID, "ext-gen3").click()  # From
 
@@ -451,7 +457,7 @@ class Automation:
                 in_table = self.driver.find_element(By.ID, "tblInboundFlights")
                 first_row_in = in_table.find_element(By.CSS_SELECTOR, "tr")
                 departure_in = first_row_in.find_element(By.XPATH, "./td[5]").text
-                self._log(f"departure time: {departure_in}")
+                self._log(f"departure time Inbound: {departure_in}")
                 # input("departure time found")
 
                 # arrival = first_row_in.find_element(By.XPATH, "./td[6]").text
@@ -481,33 +487,37 @@ class Automation:
             self.fare_counts[flight_price] += 1
 
             self._log(f"Day {day + 1} fare: {flight_price}")
-            self._log("posting fare price")
-            depart = datetime.strptime(departure_out, "%a %d%b%y %H:%M")
-            arriv = datetime.strptime(departure_in, "%a %d%b%y %H:%M")
+            if flight_price <= float(airport['promo_fare']):
+                self._log("posting fare price")
+                depart = datetime.strptime(departure_out, "%a %d%b%y %H:%M")
+                arriv = datetime.strptime(departure_in, "%a %d%b%y %H:%M")
 
-            prams = {
-                "from": airport['from'],
-                "to": airport['to'],
-                "departure": depart.strftime("%Y-%m-%d %H:%M:%S"),
-                "return": arriv.strftime("%Y-%m-%d %H:%M:%S"),
-                "fare": flight_price,
-                "airport_id": airport['id'],
-            }
-            posting = [
-                "http://localhost/fasttrack_perfex/holiday/api/update_fare"
-            ]
-            headers = {
-                "X-API-KEY": "eyJ1c2VybmFtZSI6ImluZm8uZ3N0c3ZuMTEwOEBnbWFpbC5jb20iLCJw8uZ3N0c3ZuMTEwYXNzd29yZCI6IjEyMzQ1NmFAIiwiQVBJX1RJTUUiOjE1NzQzOTU4NTl9",
-                "Accept": "application/json"
-            }
-            for post in posting:
-                response = requests.get(
-                    post,
-                    params=prams,
-                    headers=headers
-                )
-                self._log(f"api response {response}")
-                self.random_sleep()
+                prams = {
+                    "from": airport['from'],
+                    "to": airport['to'],
+                    "departure": depart.strftime("%Y-%m-%d %H:%M:%S"),
+                    "return": arriv.strftime("%Y-%m-%d %H:%M:%S"),
+                    "fare": flight_price,
+                    "airport_id": airport['id'],
+                }
+                posting = [
+                    "http://localhost/fasttrack_perfex/holiday/api/update_fare",
+                    # "https://fasttracktourism.emmartax.com/holiday/api/update_fare",
+                    # "https://pinastraveltourism.emmartax.com/holiday/api/update_fare",
+                    # "https://kabayantraveltourism.emmartax.com/holiday/api/update_fare",
+                ]
+                headers = {
+                    "X-API-KEY": "eyJ1c2VybmFtZSI6ImluZm8uZ3N0c3ZuMTEwOEBnbWFpbC5jb20iLCJw8uZ3N0c3ZuMTEwYXNzd29yZCI6IjEyMzQ1NmFAIiwiQVBJX1RJTUUiOjE1NzQzOTU4NTl9",
+                    "Accept": "application/json"
+                }
+                for post in posting:
+                    response = requests.get(
+                        post,
+                        params=prams,
+                        headers=headers
+                    )
+                    self._log(f"api response {response}")
+                    self.random_sleep()
 
             # input(f"first api posted Response: {response}")
             self.random_sleep()
@@ -619,6 +629,7 @@ class Automation:
         try:
             response = requests.get(
                 'http://localhost/fasttrack_perfex/holiday/api/get_airports',
+                # 'https://fasttracktourism.emmartax.com/holiday/api/get_airports',
                 headers=headers,
                 timeout=30
 
